@@ -11,6 +11,7 @@ from slack_extra.utils.slack import get_channel_managers
 HACKATIME_ENDPOINT = "https://hackatime.hackclub.com/api/v1/users/slackid/trust_factor"
 IDENTITY_ENDPOINT = "https://identity.hackclub.com/api/external/check"
 JOE_ENDPOINT = "https://joe.fraud.hackclub.com/profile/"
+NDA_ENDPOINT = "https://nda.hackclub.com/api/v1/nda_status/"
 
 
 async def get_dm_partner(client: AsyncWebClient, performer: str, dm: str) -> str | None:
@@ -114,6 +115,7 @@ async def info_handler(
             except Exception:
                 res += "- :clock1: *Hackatime Trust Factor:* N/A\n"
 
+            # Fetch IDV Status
             if email:
                 async with env.http.get(
                     IDENTITY_ENDPOINT, params={"slack_id": user}
@@ -130,6 +132,22 @@ async def info_handler(
                                 res += f"- :bust_in_silhouette: *IDV:* {id_data.get('result').replace('_', ' ').capitalize()}\n"
                             else:
                                 res += "- :bust_in_silhouette: *IDV:- N/A\n"
+            
+            # Fetch NDA Status
+            try:
+                async with env.http.get(
+                    NDA_ENDPOINT + user
+                ) as ht_resp:
+                if ht_resp.status == 200:
+                    ht_data = await ht_resp.json()
+                    status = ht_data.get("status")
+                    signature_type = ht_data.get("signature_type")
+
+                    res += f"- :tw_shield: *NDA Status:* {status.replace("_", " ").title()}{f" ({signature_type})" if signature_type else ""}"
+                else:
+                    res += f"- :tw_shield: *NDA Status: Unknown*"
+            except Exception:
+                res += f"- :tw_shield: *NDA Status: Unknown*"
 
         # if email:
         #     api = Api(api_key=config.airtable.nda.api_key)
